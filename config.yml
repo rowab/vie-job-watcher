@@ -35,13 +35,50 @@ sites:
       CustomFacetName: ""
       FacetTerm: ""
       FacetType: 0
-      # FacetFilters[0]… correspond au filtre "Type d’emploi : VIE"
       "FacetFilters[0].ID": "VIE"
       "FacetFilters[0].FacetType": 5
       "FacetFilters[0].Count": 0
       "FacetFilters[0].Display": "VIE"
       "FacetFilters[0].IsApplied": "true"
       "FacetFilters[0].FieldName": "job_type"
+      SearchResultsModuleName: "Search Results"
+      SearchFiltersModuleName: "Search Filters"
+      SortCriteria: 0
+      SortDirection: 0
+      SearchType: 5
+      PostalCode: ""
+      ResultsType: 0
+
+  - name: "Valeo (VIE)"
+    type: "workday_raw"
+    base_url: "https://valeo.wd3.myworkdayjobs.com/wday/cxs/valeo/valeo_jobs/jobs"
+    source: "valeo"
+    body:
+      appliedFacets:
+        workerSubType:
+          - "1bc7ee912dc9100bd4a826d6e65d0000"   
+      limit: 20
+      offset: 0
+      searchText: ""
+
+
+  - name: "TotalEnergies (VIE)"
+    type: "sanofi_vie"                            
+    base: "https://jobs.totalenergies.com"
+    url:  "https://jobs.totalenergies.com/en_US/careers/SearchJobs/results"
+    params:
+      CurrentPage: 1
+      RecordsPerPage: 50
+      TotalContentResults: ""
+      Distance: 50
+      RadiusUnitType: 0
+      Keywords: "VIE"          
+      Location: ""
+      ShowRadius: "False"
+      IsPagination: "False"
+      CustomFacetName: ""
+      FacetTerm: ""
+      FacetType: 0
       SearchResultsModuleName: "Search Results"
       SearchFiltersModuleName: "Search Filters"
       SortCriteria: 0

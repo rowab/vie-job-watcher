@@ -226,25 +226,193 @@ def fetch_lever(company: str) -> List[Job]:
         ))
     return jobs
 
-def fetch_workday(base_url: str, search_text: str = "") -> List[Job]:
-    """Workday cxs API: POST sur .../jobs, body minimal {"limit":20,"offset":0,"searchText":"VIE"}"""
-    payload = {"limit": 100, "offset": 0}
-    if search_text:
-        payload["searchText"] = search_text
-    headers = {"Content-Type": "application/json"}
-    r = requests.post(base_url, json=payload, headers=headers, timeout=30)
-    r.raise_for_status()
-    data = r.json()
-    jobs = []
+def fetch_workday(base_url: str, search_text: str = "VIE") -> List[Job]:
+    """
+    Valeo / Workday CxS durcit parfois:
+      - exige cookies de la page carrière (GET préalable)
+      - exige Referer exact
+    On fait un GET sur la page carrière pour obtenir les cookies, puis on POST.
+    On essaie 4 variantes: searchText, appliedFacets VIE, sans filtre, puis GET avec appliedFacets.
+    """
+    from urllib.parse import urlsplit
+    parts = urlsplit(base_url)
+    root = f"{parts.scheme}://{parts.netloc}"
+    segs = [p for p in parts.path.split("/") if p]
+    # .../wday/cxs/<tenant>/<site>/jobs -> on veut /<site>
+    site_slug = segs[-2] if len(segs) >= 2 else ""
+    referer = f"{root}/{site_slug}" if site_slug else root
+
+    UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36"
+
+    s = requests.Session()
+    # 1) GET pour cookies
+    try:
+        s.get(referer, headers={
+            "User-Agent": UA,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+        }, timeout=30)
+    except Exception as e:
+        print("[Workday] GET referer error:", e)
+
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+        "User-Agent": UA,
+        "Origin": root,
+        "Referer": referer,
+        "X-Requested-With": "XMLHttpRequest",
+    }
+
+    # ID facette Workday pour "Volontariat international en entreprise (VIE)" (vu dans ta réponse)
+    VIE_FACET_ID = "1bc7ee912dc9100bd4a826d6e65d0000"
+
+    payloads = [
+        {"limit": 100, "offset": 0, "searchText": search_text},  # A
+        {"limit": 100, "offset": 0, "appliedFacets": {"workerSubType": [VIE_FACET_ID]}},  # B
+        {"limit": 100, "offset": 0},  # C (on filtrera par mots-clés ensuite)
+    ]
+
+    data = None
+    last_err = None
+
+    # 2) POST avec 3 payloads possibles
+    for p in payloads:
+        try:
+            r = s.post(base_url, json=p, headers=headers, timeout=30)
+            r.raise_for_status()
+            data = r.json()
+            break
+        except Exception as e:
+            try:
+                print(f"[Workday debug] HTTP {getattr(r,'status_code', '??')} body: {getattr(r,'text','')[:400]}")
+            except Exception:
+                pass
+            last_err = e
+
+    # 3) Ultime essai: GET avec appliedFacets=workerSubType:<ID>
+    if data is None:
+        try:
+            params = {"limit": 100, "offset": 0, "appliedFacets": f"workerSubType:{VIE_FACET_ID}"}
+            r = s.get(base_url, params=params, headers={"Accept": "application/json", "User-Agent": UA, "Referer": referer}, timeout=30)
+            r.raise_for_status()
+            data = r.json()
+        except Exception as e:
+            last_err = e
+
+    if data is None:
+        print(f"[Workday] ❌ {last_err}")
+        return []
+
+    # ---- mapping robuste ----
+    jobs: List[Job] = []
     for j in data.get("jobPostings", []):
+        job_id = j.get("id")
+        bf = j.get("bulletFields")
+        if not job_id and isinstance(bf, list) and bf:
+            job_id = bf[0]
+        if not job_id:
+            ep = (j.get("externalPath") or "")
+            m = re.search(r"(REQ\d+)", ep)
+            job_id = m.group(1) if m else (ep or j.get("title", ""))
+
+        external_path = j.get("externalPath") or ""
+        url = j.get("externalUrl") or (root + external_path)
+
+        loc = j.get("locationsText") or ""
+        if not loc:
+            locs = j.get("locations")
+            if isinstance(locs, list):
+                loc = ", ".join(locs)
+            elif isinstance(locs, str):
+                loc = locs
+
         jobs.append(Job(
-            id=str(j.get("bulletFields", {}).get("jobId") or j.get("id")),
-            title=j.get("title",""),
-            location=", ".join(j.get("locations", [])),
-            url=j.get("externalPath") or j.get("externalUrl") or "",
-            source="workday"
+            id=str(job_id),
+            title=(j.get("title") or "").strip(),
+            location=loc,
+            url=url,
+            source="valeo"
         ))
     return jobs
+
+
+def fetch_workday_raw(conf: Dict[str, Any]) -> List[Job]:
+    """
+    Poste EXACTEMENT le body fourni dans config.yml sur /wday/cxs/.../jobs.
+    Fait d'abord un GET sur la page du site carrière pour récupérer les cookies.
+    """
+    from urllib.parse import urlsplit
+    base_url = conf["base_url"]
+    body = conf.get("body", {})
+    limit = body.get("limit", 20)
+
+    parts = urlsplit(base_url)
+    root = f"{parts.scheme}://{parts.netloc}"
+    segs = [p for p in parts.path.split("/") if p]
+    site_slug = segs[-2] if len(segs) >= 2 else ""
+    referer = f"{root}/{site_slug}" if site_slug else root
+
+    UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36"
+
+    s = requests.Session()
+    # 1) Cookies
+    try:
+        s.get(referer, headers={
+            "User-Agent": UA,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+        }, timeout=30)
+    except Exception as e:
+        print("[Workday/raw] GET referer error:", e)
+
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+        "User-Agent": UA,
+        "Origin": root,
+        "Referer": referer,
+        "X-Requested-With": "XMLHttpRequest",
+    }
+
+    # 2) POST exact
+    r = s.post(base_url, json=body, headers=headers, timeout=30)
+    r.raise_for_status()
+    data = r.json()
+
+    # 3) Mapping robuste
+    jobs: List[Job] = []
+    for j in data.get("jobPostings", []):
+        job_id = j.get("id")
+        bf = j.get("bulletFields")
+        if not job_id and isinstance(bf, list) and bf:
+            job_id = bf[0]
+        if not job_id:
+            ep = (j.get("externalPath") or "")
+            m = re.search(r"(REQ\d+)", ep)
+            job_id = m.group(1) if m else (ep or j.get("title", ""))
+
+        external_path = j.get("externalPath") or ""
+        url = j.get("externalUrl") or (root + external_path)
+
+        loc = j.get("locationsText") or ""
+        if not loc:
+            locs = j.get("locations")
+            if isinstance(locs, list): loc = ", ".join(locs)
+            elif isinstance(locs, str): loc = locs
+
+        jobs.append(Job(
+            id=str(job_id),
+            title=(j.get("title") or "").strip(),
+            location=loc,
+            url=url,
+            source=conf.get("source", "workday")
+        ))
+    return jobs
+
+
 
 def fetch_json_api(conf: Dict[str, Any]) -> List[Job]:
     """
@@ -337,6 +505,8 @@ def main():
                 jobs = fetch_json_api(site)
             elif stype == "sanofi_vie":
                 jobs = fetch_sanofi_vie(site)
+            elif stype == "workday_raw":
+                jobs = fetch_workday_raw(site)
             else:
                 print(f"Type inconnu: {stype}")
                 jobs = []
