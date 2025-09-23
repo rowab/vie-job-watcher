@@ -1,0 +1,51 @@
+keywords:
+  - "VIE"
+  - "V.I.E"
+  - "Volontariat international"
+  - "Voluntary International Experience" 
+notify:
+  telegram:
+    enabled: false
+
+  email:
+    enabled: true
+    smtp_host: smtp.gmail.com
+    smtp_port: 587
+    from_env: SMTP_FROM
+    to_env: SMTP_TO
+    user_env: SMTP_USER
+    pass_env: SMTP_PASS
+
+sites:
+  - name: "Sanofi (VIE)"
+    type: "sanofi_vie"
+    base: "https://jobs.sanofi.com"
+    url:  "https://jobs.sanofi.com/fr/search-jobs/results"
+    params:
+      ActiveFacetID: "VIE"
+      CurrentPage: 1
+      RecordsPerPage: 50         # on ramène large
+      TotalContentResults: ""
+      Distance: 50
+      RadiusUnitType: 0
+      Keywords: ""
+      Location: ""
+      ShowRadius: "False"
+      IsPagination: "False"
+      CustomFacetName: ""
+      FacetTerm: ""
+      FacetType: 0
+      # FacetFilters[0]… correspond au filtre "Type d’emploi : VIE"
+      "FacetFilters[0].ID": "VIE"
+      "FacetFilters[0].FacetType": 5
+      "FacetFilters[0].Count": 0
+      "FacetFilters[0].Display": "VIE"
+      "FacetFilters[0].IsApplied": "true"
+      "FacetFilters[0].FieldName": "job_type"
+      SearchResultsModuleName: "Search Results"
+      SearchFiltersModuleName: "Search Filters"
+      SortCriteria: 0
+      SortDirection: 0
+      SearchType: 5
+      PostalCode: ""
+      ResultsType: 0
