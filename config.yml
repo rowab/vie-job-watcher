@@ -60,6 +60,30 @@ sites:
       limit: 20
       offset: 0
       searchText: ""
+  
+  - name: "Air Liquide (VIE)"
+    type: "workday_raw"
+    source: "airliquide"
+    base_url: "https://airliquidehr.wd3.myworkdayjobs.com/wday/cxs/airliquidehr/AirLiquideExternalCareer/jobs"
+    body:
+      appliedFacets:
+        workerSubType:
+          - "431d4efb2c9c01661367fc92f200cd43"   
+      limit: 20
+      offset: 0
+      searchText: ""
+
+  - name: "ArcelorMittal (VIE)"
+    type: "oracle_orc"
+    source: "arcelormittal"
+    base_url: "https://emfg.fa.em4.oraclecloud.com/hcmRestApi/resources/latest/recruitingCEJobRequisitions"
+    params:
+      onlyData: "true"
+      expand: "requisitionList.workLocation,requisitionList.otherWorkLocations,requisitionList.secondaryLocations,flexFieldsFacet.values,requisitionList.requisitionFlexFields"
+      finder: "findReqs;siteNumber=CX_4001,facetsList=LOCATIONS;WORK_LOCATIONS;WORKPLACE_TYPES;TITLES;CATEGORIES;ORGANIZATIONS;POSTING_DATES;FLEX_FIELDS,keyword=vie,sortBy=RELEVANCY"
+      limit: 50
+      offset: 0
+
 
 
   - name: "TotalEnergies (VIE)"

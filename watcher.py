@@ -412,6 +412,71 @@ def fetch_workday_raw(conf: Dict[str, Any]) -> List[Job]:
         ))
     return jobs
 
+def fetch_oracle_orc(conf: Dict[str, Any]) -> List[Job]:
+    """Oracle Recruiting Cloud (ORC) via recruitingCEJobRequisitions + finder=..."""
+    url = conf["base_url"]
+    base_params = (conf.get("params") or {}).copy()
+    headers = {"Accept": "application/json", "User-Agent": "Mozilla/5.0"}
+
+    limit = int(base_params.get("limit", 50))
+    offset0 = int(base_params.get("offset", 0))
+
+    jobs: List[Job] = []
+    offset = offset0
+    while True:
+        params = base_params.copy()
+        params["offset"] = offset
+        params["limit"] = limit
+
+        r = requests.get(url, params=params, headers=headers, timeout=30)
+        r.raise_for_status()
+        data = r.json()
+
+        # ORC renvoie souvent items[] avec, parfois, un sous-tableau requisitionList[]
+        items = data.get("items", []) or []
+        recs = []
+        for it in items:
+            if isinstance(it.get("requisitionList"), list):
+                recs.extend(it["requisitionList"])
+            else:
+                recs.append(it)
+
+        for it in recs:
+            jid = (it.get("Id") or it.get("JobRequisitionId") or
+                   it.get("RequisitionNumber") or it.get("Number") or "")
+            title = (it.get("PostingTitle") or it.get("Title") or it.get("Name") or "").strip()
+
+            loc = (it.get("PrimaryLocationFullName") or it.get("PrimaryLocationName") or
+                   it.get("Location") or "")
+            if not loc:
+                city = it.get("PrimaryLocationCity") or ""
+                state = it.get("PrimaryLocationState") or ""
+                country = it.get("PrimaryLocationCountry") or ""
+                loc = ", ".join([x for x in (city, state, country) if x])
+
+            url_ext = (it.get("ExternalURL") or it.get("ExternalUrl") or it.get("jobPostingUrl") or "")
+            if not url_ext:
+                for L in (it.get("links") or []):
+                    if L.get("href"):
+                        url_ext = L["href"]; break
+
+            jobs.append(Job(
+                id=str(jid or title),
+                title=title or "(sans titre)",
+                location=loc,
+                url=url_ext,
+                source=conf.get("source", "oracle_orc")
+            ))
+
+        # pagination
+        has_more = bool(data.get("hasMore"))
+        if not has_more or len(recs) < limit:
+            break
+        offset += limit
+
+    return jobs
+
+
 
 
 def fetch_json_api(conf: Dict[str, Any]) -> List[Job]:
@@ -507,6 +572,9 @@ def main():
                 jobs = fetch_sanofi_vie(site)
             elif stype == "workday_raw":
                 jobs = fetch_workday_raw(site)
+            elif stype == "oracle_orc":
+                jobs = fetch_oracle_orc(site)
+
             else:
                 print(f"Type inconnu: {stype}")
                 jobs = []
