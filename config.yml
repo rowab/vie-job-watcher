@@ -24,7 +24,7 @@ sites:
     params:
       ActiveFacetID: "VIE"
       CurrentPage: 1
-      RecordsPerPage: 50         # on ramène large
+      RecordsPerPage: 50         
       TotalContentResults: ""
       Distance: 50
       RadiusUnitType: 0
@@ -84,29 +84,23 @@ sites:
       limit: 50
       offset: 0
 
+  - name: "Air France (VIE)"
+    type: "airfrance_talentsoft"
+    base: "https://recrutement.airfrance.com"
+    url:  "https://recrutement.airfrance.com/pages/offre/listeoffre.aspx?facet_JobDescription_Contract=3445&lcid=2057"
 
+  - name: "LVMH (VIE)"
+    type: "lvmh"
+    url: "https://www.lvmh.com/api/search"
+    index: "PRD-fr-fr-timestamp-desc"
 
-  - name: "TotalEnergies (VIE)"
-    type: "sanofi_vie"                            
-    base: "https://jobs.totalenergies.com"
-    url:  "https://jobs.totalenergies.com/en_US/careers/SearchJobs/results"
+  - name: "Saint-Gobain (VIE)"
+    type: "saint_gobain_playwright"
+    base: "https://joinus.saint-gobain.com"
+    url:  "https://joinus.saint-gobain.com/fr"
     params:
-      CurrentPage: 1
-      RecordsPerPage: 50
-      TotalContentResults: ""
-      Distance: 50
-      RadiusUnitType: 0
-      Keywords: "VIE"          
-      Location: ""
-      ShowRadius: "False"
-      IsPagination: "False"
-      CustomFacetName: ""
-      FacetTerm: ""
-      FacetType: 0
-      SearchResultsModuleName: "Search Results"
-      SearchFiltersModuleName: "Search Filters"
-      SortCriteria: 0
-      SortDirection: 0
-      SearchType: 5
-      PostalCode: ""
-      ResultsType: 0
+      "f[0]": "type_contrat:46"    
+    max_pages: 8
+    pre_filtered: true           
+
+                 

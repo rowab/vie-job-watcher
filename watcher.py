@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 import requests
 from bs4 import BeautifulSoup
 from pydantic import BaseModel
+from playwright.sync_api import sync_playwright
 import yaml
 
 # ---------- Utilitaires ----------
@@ -28,7 +29,8 @@ def job_hash(job: Dict[str, Any]) -> str:
     base = (job.get("id") or "") + (job.get("title") or "") + (job.get("url") or "")
     return hashlib.sha1(base.encode("utf-8")).hexdigest()
 
-# ---------- Notifications ----------
+
+#### NOTIF
 def send_telegram(msg: str):
     token = os.environ.get("TELEGRAM_TOKEN")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
@@ -73,7 +75,7 @@ def send_email(subject: str, body: str, cfg: dict):
         print("[email] ❌ error:", e)
 
 
-# ---------- Modèle d'offre ----------
+
 class Job(BaseModel):
     id: str
     title: str
@@ -81,7 +83,7 @@ class Job(BaseModel):
     url: str
     source: str
 
-# ---------- Adaptateurs ----------
+
 
 def fetch_sanofi_vie(conf) -> List[Job]:
     """
@@ -97,13 +99,12 @@ def fetch_sanofi_vie(conf) -> List[Job]:
     headers = {
         "Accept": "application/json, text/javascript, */*; q=0.01",
         "User-Agent": "Mozilla/5.0",
-        "Referer": base + "/fr/recherche-d%27offres",  # pas obligatoire mais utile
+        "Referer": base + "/fr/recherche-d%27offres",  
     }
 
     jobs: List[Job] = []
 
     def call(page: int):
-        # Deux façons de paginer: param ?p=page OU changer CurrentPage
         p = params.copy()
         p["CurrentPage"] = page
         r = requests.get(url, params=p, headers=headers, timeout=30)
@@ -112,7 +113,6 @@ def fetch_sanofi_vie(conf) -> List[Job]:
         html = data.get("results", "") or ""
         soup = BeautifulSoup(html, "html.parser")
 
-        # Infos pagination
         section = soup.select_one("section#search-results")
         total_pages = 1
         curr_page = page
@@ -123,7 +123,6 @@ def fetch_sanofi_vie(conf) -> List[Job]:
             except Exception:
                 pass
 
-        # Liste d'offres
         for li in soup.select("#search-results-list ul > li"):
             a = li.select_one("a[data-job-id]")
             if not a: 
@@ -135,7 +134,7 @@ def fetch_sanofi_vie(conf) -> List[Job]:
             loc_el = li.select_one(".job-location")
             location = ""
             if loc_el:
-                # ex: "Site: Cambridge, Massachusetts" -> on nettoie
+               
                 location = loc_el.get_text(" ", strip=True)
                 location = location.replace("Site: ", "").strip()
             full_url = rel_link if rel_link.startswith("http") else (base + rel_link)
@@ -150,10 +149,9 @@ def fetch_sanofi_vie(conf) -> List[Job]:
 
         return curr_page, total_pages
 
-    # Page 1
+   
     curr, total = call(1)
 
-    # Pages suivantes (s'il y en a)
     for pnum in range(curr + 1, total + 1):
         try:
             # Alternative pagination via ?p=2 (plus robuste sur ce site)
@@ -238,14 +236,13 @@ def fetch_workday(base_url: str, search_text: str = "VIE") -> List[Job]:
     parts = urlsplit(base_url)
     root = f"{parts.scheme}://{parts.netloc}"
     segs = [p for p in parts.path.split("/") if p]
-    # .../wday/cxs/<tenant>/<site>/jobs -> on veut /<site>
+   
     site_slug = segs[-2] if len(segs) >= 2 else ""
     referer = f"{root}/{site_slug}" if site_slug else root
 
     UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36"
 
     s = requests.Session()
-    # 1) GET pour cookies
     try:
         s.get(referer, headers={
             "User-Agent": UA,
@@ -265,19 +262,17 @@ def fetch_workday(base_url: str, search_text: str = "VIE") -> List[Job]:
         "X-Requested-With": "XMLHttpRequest",
     }
 
-    # ID facette Workday pour "Volontariat international en entreprise (VIE)" (vu dans ta réponse)
     VIE_FACET_ID = "1bc7ee912dc9100bd4a826d6e65d0000"
 
     payloads = [
         {"limit": 100, "offset": 0, "searchText": search_text},  # A
         {"limit": 100, "offset": 0, "appliedFacets": {"workerSubType": [VIE_FACET_ID]}},  # B
-        {"limit": 100, "offset": 0},  # C (on filtrera par mots-clés ensuite)
+        {"limit": 100, "offset": 0},  
     ]
 
     data = None
     last_err = None
 
-    # 2) POST avec 3 payloads possibles
     for p in payloads:
         try:
             r = s.post(base_url, json=p, headers=headers, timeout=30)
@@ -291,7 +286,6 @@ def fetch_workday(base_url: str, search_text: str = "VIE") -> List[Job]:
                 pass
             last_err = e
 
-    # 3) Ultime essai: GET avec appliedFacets=workerSubType:<ID>
     if data is None:
         try:
             params = {"limit": 100, "offset": 0, "appliedFacets": f"workerSubType:{VIE_FACET_ID}"}
@@ -305,7 +299,7 @@ def fetch_workday(base_url: str, search_text: str = "VIE") -> List[Job]:
         print(f"[Workday] ❌ {last_err}")
         return []
 
-    # ---- mapping robuste ----
+    
     jobs: List[Job] = []
     for j in data.get("jobPostings", []):
         job_id = j.get("id")
@@ -357,7 +351,7 @@ def fetch_workday_raw(conf: Dict[str, Any]) -> List[Job]:
     UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36"
 
     s = requests.Session()
-    # 1) Cookies
+   
     try:
         s.get(referer, headers={
             "User-Agent": UA,
@@ -377,12 +371,10 @@ def fetch_workday_raw(conf: Dict[str, Any]) -> List[Job]:
         "X-Requested-With": "XMLHttpRequest",
     }
 
-    # 2) POST exact
     r = s.post(base_url, json=body, headers=headers, timeout=30)
     r.raise_for_status()
     data = r.json()
 
-    # 3) Mapping robuste
     jobs: List[Job] = []
     for j in data.get("jobPostings", []):
         job_id = j.get("id")
@@ -476,6 +468,197 @@ def fetch_oracle_orc(conf: Dict[str, Any]) -> List[Job]:
 
     return jobs
 
+def fetch_airfrance_talentsoft(conf) -> List[Job]:
+    """
+    Parse la liste Talentsoft d’Air France filtrée sur le contrat VIE.
+    Exemple d’URL (EN): 
+      https://recrutement.airfrance.com/pages/offre/listeoffre.aspx?facet_JobDescription_Contract=3445&lcid=2057
+    On récupère tous les <a> dont le href contient "/job/", qui pointent vers les fiches.
+    """
+    from urllib.parse import urljoin
+
+    base = conf.get("base", "https://recrutement.airfrance.com")
+    url  = conf["url"]
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "text/html,application/xhtml+xml",
+        "Referer": base + "/offre-de-emploi/liste-offres.aspx",
+    }
+
+    r = requests.get(url, headers=headers, timeout=30)
+    r.raise_for_status()
+    soup = BeautifulSoup(r.text, "html.parser")
+
+    jobs: List[Job] = []
+    for a in soup.select('a[href*="/job/"]'):
+        title = a.get_text(strip=True)
+        href  = a.get("href", "")
+        if not title or not href:
+            continue
+
+        full_url = href if href.startswith("http") else urljoin(base, href)
+
+       
+        m = re.search(r'(\d{4}\-\d+|R\d{6,}|[A-Z]{1,4}\d{5,})', full_url)
+        job_id = m.group(1) if m else hashlib.sha1(full_url.encode("utf-8")).hexdigest()[:12]
+
+        jobs.append(Job(
+            id=job_id,
+            title=title,
+            location="",          
+            url=full_url,
+            source="airfrance"
+        ))
+
+    
+    dedup, seen = [], set()
+    for j in jobs:
+        if j.id in seen:
+            continue
+        seen.add(j.id)
+        dedup.append(j)
+
+    return dedup
+def fetch_lvmh(conf) -> List[Job]:
+    
+    url = conf.get("url", "https://www.lvmh.com/api/search")
+    index = conf.get("index", "PRD-fr-fr-timestamp-desc")
+
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Origin": "https://www.lvmh.com",
+        "Referer": "https://www.lvmh.com/fr/nous-rejoindre/nos-offres",
+        "User-Agent": "Mozilla/5.0",
+    }
+
+    jobs: List[Job] = []
+    page = 0
+    while True:
+        payload = {
+            "queries": [{
+                "indexName": index,
+                "params": {
+                    "filters": "category:job",
+                    "facetFilters": [["contractFilter:VIE"]],
+                    "hitsPerPage": 100,
+                    "page": page,
+                    "maxValuesPerFacet": 100
+                }
+            }]
+        }
+        r = requests.post(url, json=payload, headers=headers, timeout=30)
+        r.raise_for_status()
+        data = r.json()
+
+        results = (data.get("results") or [])
+        if not results:
+            break
+
+        res0 = results[0]
+        hits = res0.get("hits", [])
+        for h in hits:
+            title = h.get("name", "")
+            link = h.get("link") or ""
+            city = h.get("city") or h.get("cityFilter") or ""
+            country = h.get("countryRegionFilter") or h.get("country") or ""
+            location = ", ".join([x for x in [city, country] if x])
+
+            jid = str(h.get("objectID") or h.get("atsId") or link)
+            jobs.append(Job(
+                id=jid,
+                title=title,
+                location=location,
+                url=link,
+                source="lvmh"
+            ))
+
+        nb_pages = res0.get("nbPages", page + 1)
+        if page + 1 >= nb_pages:
+            break
+        page += 1
+
+    return jobs
+
+def fetch_saint_gobain_vie_playwright(conf) -> List[Job]:
+    from urllib.parse import urlencode, urlparse, parse_qs, urlencode as enc, urlunparse
+    base = conf.get("base", "https://joinus.saint-gobain.com")
+    url  = conf["url"]
+    params = conf.get("params", {})
+    max_pages = int(conf.get("max_pages", 8))
+    start_url = url + ("?" + urlencode(params, doseq=True) if params else "")
+
+    jobs, seen_urls = [], set()
+
+    with sync_playwright() as p:
+        br = p.chromium.launch(headless=True)
+        ctx = br.new_context(locale="fr-FR")
+        page = ctx.new_page()
+
+        block = ("doubleclick","googletag","linkedin.com/px","googletagmanager","facebook","hotjar","adobedtm")
+        page.route("**/*", lambda r: r.abort() if any(x in r.request.url for x in block) else r.continue_())
+
+        page.goto(start_url, wait_until="domcontentloaded", timeout=60000)
+        
+        for sel in ("#onetrust-accept-btn-handler","button:has-text('Tout accepter')","button:has-text('Accepter')"):
+            try: page.locator(sel).first.click(timeout=1500); break
+            except: pass
+
+        for _ in range(max_pages):
+            page.wait_for_load_state("networkidle", timeout=45000)
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            page.wait_for_timeout(800)
+
+            found_this_page = 0
+            selectors = [
+                "article a[href*='/v/']",
+                "a.teaser__link[href*='/v/']",
+                "a[href*='/v/'][data-drupal-link-system-path]",
+                "a[href*='/offre-'][href*='/v/']",
+            ]
+            for sel in selectors:
+                try:
+                    links = page.eval_on_selector_all(
+                        sel,
+                        "els => els.map(e => ({href: e.href, text: (e.innerText||e.textContent||'').trim()}))"
+                    ) or []
+                except:
+                    links = []
+                for d in links:
+                    href = d.get("href")
+                    if not href or href in seen_urls: 
+                        continue
+                    seen_urls.add(href)
+                    title = d.get("text","")
+                    jobs.append(Job(
+                        id=hashlib.md5(href.encode()).hexdigest(),
+                        title=title,
+                        location="",
+                        url=href if href.startswith("http") else (base+href),
+                        source="saint-gobain"
+                    ))
+                    found_this_page += 1
+                if found_this_page:
+                    break
+
+           
+            print(f"[Saint-Gobain] {found_this_page} lien(s) sur cette page — {page.url}")
+
+            
+            next_sel = 'a[rel="next"], li.pager__item--next a, a[aria-label*="Suivant"], a:has-text("Suivant")'
+            if page.locator(next_sel).count() > 0:
+                page.locator(next_sel).first.click()
+                continue
+
+            
+            u = urlparse(page.url); q = parse_qs(u.query)
+            cur = int(q.get("page",["0"])[0])
+            q["page"] = [str(cur+1)]
+            nxt = urlunparse((u.scheme,u.netloc,u.path,"", enc(q, doseq=True), ""))
+            if nxt == page.url: break
+            page.goto(nxt, wait_until="domcontentloaded")
+        br.close()
+    return jobs
 
 
 
@@ -496,11 +679,11 @@ def fetch_json_api(conf: Dict[str, Any]) -> List[Job]:
     r.raise_for_status()
     data = r.json()
 
-    # Chemin de la liste (facultatif). Si absent, on suppose que `data` EST la liste.
+  
     items = data
     json_path = conf.get("json_path_items")
     if json_path:
-        # mini json-path "$.foo.bar" -> on fait simple
+       
         path = json_path.strip("$.").split(".")
         for p in path:
             items = items.get(p, {})
@@ -552,6 +735,7 @@ def main():
     keywords = cfg.get("keywords", ["VIE"])
     notify_cfg = cfg.get("notify", {})
     sites = cfg.get("sites", [])
+    site_prefiltered = site.get("pre_filtered", False)
 
     for site in sites:
         stype = site.get("type")
@@ -564,7 +748,7 @@ def main():
             elif stype == "lever":
                 jobs = fetch_lever(site["company"])
             elif stype == "workday":
-                # On peut passer search_text="VIE" pour ne ramener que l'utile
+                
                 jobs = fetch_workday(site["base_url"], search_text="VIE")
             elif stype == "json_api":
                 jobs = fetch_json_api(site)
@@ -574,6 +758,13 @@ def main():
                 jobs = fetch_workday_raw(site)
             elif stype == "oracle_orc":
                 jobs = fetch_oracle_orc(site)
+            elif stype == "airfrance_talentsoft":
+                jobs = fetch_airfrance_talentsoft(site)
+            elif stype == "lvmh":
+                jobs = fetch_lvmh(site)
+            
+            elif stype == "saint_gobain_playwright":
+                jobs = fetch_saint_gobain_vie_playwright(site)
 
             else:
                 print(f"Type inconnu: {stype}")
@@ -584,13 +775,13 @@ def main():
 
         for j in jobs:
             text = f"{j.title} {j.location} {j.url}"
-            if any_keyword(text, keywords):
+            if site_prefiltered or any_keyword(text, keywords):
                 h = job_hash(j.dict())
                 if h not in new_seen:
                     new_seen.add(h)
                     found.append(j)
 
-    # Notifications
+    # Notif
     if found:
         lines = [f"🆕 {len(found)} nouvelle(s) offre(s) VIE détectée(s):"]
         for j in found:
