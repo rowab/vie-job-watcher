@@ -30,6 +30,7 @@ sites:
     type: "sanofi_vie"
     base: "https://jobs.sanofi.com"
     url:  "https://jobs.sanofi.com/fr/search-jobs/results"
+    pre_filtered: true 
     params:
       ActiveFacetID: "VIE"
       CurrentPage: 1
@@ -62,6 +63,7 @@ sites:
     type: "workday_raw"
     base_url: "https://valeo.wd3.myworkdayjobs.com/wday/cxs/valeo/valeo_jobs/jobs"
     source: "valeo"
+    pre_filtered: true 
     body:
       appliedFacets:
         workerSubType:
@@ -74,6 +76,7 @@ sites:
     type: "workday_raw"
     source: "airliquide"
     base_url: "https://airliquidehr.wd3.myworkdayjobs.com/wday/cxs/airliquidehr/AirLiquideExternalCareer/jobs"
+    pre_filtered: true 
     body:
       appliedFacets:
         workerSubType:
@@ -97,11 +100,13 @@ sites:
     type: "airfrance_talentsoft"
     base: "https://recrutement.airfrance.com"
     url:  "https://recrutement.airfrance.com/pages/offre/listeoffre.aspx?facet_JobDescription_Contract=3445&lcid=2057"
+    pre_filtered: true 
 
   - name: "LVMH (VIE)"
     type: "lvmh"
     url: "https://www.lvmh.com/api/search"
     index: "PRD-fr-fr-timestamp-desc"
+    pre_filtered: true 
 
   - name: "Saint-Gobain (VIE)"
     type: "saint_gobain_playwright"
@@ -110,6 +115,7 @@ sites:
     params:
       "f[0]": "type_contrat:46"    
     max_pages: 8
-    pre_filtered: true           
+    pre_filtered: true   
+    pre_filtered: true         
 
                  

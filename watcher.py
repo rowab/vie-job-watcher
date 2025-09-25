@@ -725,7 +725,6 @@ def get_nested(obj, dotted_key: Optional[str]):
             return None
     return cur
 
-# ---------- Orchestrateur ----------
 def main():
     with open("config.yml", "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
@@ -737,20 +736,20 @@ def main():
     keywords = cfg.get("keywords", ["VIE"])
     notify_cfg = cfg.get("notify", {})
     sites = cfg.get("sites", [])
-    site_prefiltered = site.get("pre_filtered", False)
 
     for site in sites:
+        site_prefiltered = bool(site.get("pre_filtered", False))  
         stype = site.get("type")
-        sname = site.get("name","(site)")
+        sname = site.get("name", "(site)")
         print(f"Checking: {sname} [{stype}]")
 
+        jobs = []  
         try:
             if stype == "greenhouse":
                 jobs = fetch_greenhouse(site["company"])
             elif stype == "lever":
                 jobs = fetch_lever(site["company"])
             elif stype == "workday":
-                
                 jobs = fetch_workday(site["base_url"], search_text="VIE")
             elif stype == "json_api":
                 jobs = fetch_json_api(site)
@@ -764,13 +763,10 @@ def main():
                 jobs = fetch_airfrance_talentsoft(site)
             elif stype == "lvmh":
                 jobs = fetch_lvmh(site)
-            
             elif stype == "saint_gobain_playwright":
                 jobs = fetch_saint_gobain_vie_playwright(site)
-
             else:
                 print(f"Type inconnu: {stype}")
-                jobs = []
         except Exception as e:
             print(f"[{sname}] erreur: {e}")
             continue
