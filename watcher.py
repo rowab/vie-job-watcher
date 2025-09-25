@@ -581,7 +581,9 @@ def fetch_lvmh(conf) -> List[Job]:
     return jobs
 
 def fetch_saint_gobain_vie_playwright(conf) -> List[Job]:
+    from playwright.sync_api import sync_playwright 
     from urllib.parse import urlencode, urlparse, parse_qs, urlencode as enc, urlunparse
+    
     base = conf.get("base", "https://joinus.saint-gobain.com")
     url  = conf["url"]
     params = conf.get("params", {})
