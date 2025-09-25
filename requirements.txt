@@ -1,4 +1,5 @@
 requests
 beautifulsoup4
 pydantic
-pyyaml
+PyYAML
+playwright>=1.48
