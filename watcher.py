@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from playwright.sync_api import sync_playwright
 import yaml
 
-# ---------- Utilitaires ----------
+# ---------- Utilitaires ---------- ###########################
 def slug(s: str) -> str:
     return re.sub(r"[^a-z0-9]+","-", s.lower()).strip("-")
 
@@ -70,9 +70,9 @@ def send_email(subject: str, body: str, cfg: dict):
             s.starttls()
             s.login(user, pw)
             s.sendmail(from_addr, [to_addr], msg.as_string())
-        print("[email] ✅ sent")
+        print("[email] sent")
     except Exception as e:
-        print("[email] ❌ error:", e)
+        print("[email] error:", e)
 
 
 
@@ -296,7 +296,7 @@ def fetch_workday(base_url: str, search_text: str = "VIE") -> List[Job]:
             last_err = e
 
     if data is None:
-        print(f"[Workday] ❌ {last_err}")
+        print(f"[Workday] {last_err}")
         return []
 
     
@@ -334,8 +334,7 @@ def fetch_workday(base_url: str, search_text: str = "VIE") -> List[Job]:
 
 def fetch_workday_raw(conf: Dict[str, Any]) -> List[Job]:
     """
-    Poste EXACTEMENT le body fourni dans config.yml sur /wday/cxs/.../jobs.
-    Fait d'abord un GET sur la page du site carrière pour récupérer les cookies.
+     GET sur la page du site carrière pour récupérer les cookies
     """
     from urllib.parse import urlsplit
     base_url = conf["base_url"]
@@ -470,10 +469,8 @@ def fetch_oracle_orc(conf: Dict[str, Any]) -> List[Job]:
 
 def fetch_airfrance_talentsoft(conf) -> List[Job]:
     """
-    Parse la liste Talentsoft d’Air France filtrée sur le contrat VIE.
-    Exemple d’URL (EN): 
-      https://recrutement.airfrance.com/pages/offre/listeoffre.aspx?facet_JobDescription_Contract=3445&lcid=2057
-    On récupère tous les <a> dont le href contient "/job/", qui pointent vers les fiches.
+    Parse la liste Talent filtrée sur le contrat VIE
+    On récupère tous les <a> dont le href contient "/job/", qui pointent vers les fiches
     """
     from urllib.parse import urljoin
 
@@ -666,7 +663,7 @@ def fetch_saint_gobain_vie_playwright(conf) -> List[Job]:
 
 def fetch_json_api(conf: Dict[str, Any]) -> List[Job]:
     """
-    Générique pour des endpoints JSON (Phenom/SuccessFactors custom/etc).
+    Générique pour des endpoints JSON (Phenom/SuccessFactors custom/etc)
     conf attend: url, method, params/body, mapping {id,title,location,url}, source?
     """
     url = conf["url"]; method = conf.get("method","GET").upper()
@@ -781,7 +778,7 @@ def main():
 
     # Notif
     if found:
-        lines = [f"🆕 {len(found)} nouvelle(s) offre(s) VIE détectée(s):"]
+        lines = [f" {len(found)} nouvelle(s) offre(s) VIE détectée(s):"]
         for j in found:
             lines.append(f"- {j.title} — {j.location} [{j.source}]\n{j.url}")
         msg = "\n".join(lines)
