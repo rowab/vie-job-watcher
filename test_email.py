@@ -12,7 +12,7 @@ print("TO:", to_addr)
 print("USER:", user)
 print("PASS set?:", bool(pw))
 
-msg = MIMEText("Test e-mail VIE Watcher ✅", "plain", "utf-8")
+msg = MIMEText("Test e-mail VIE Watcher", "plain", "utf-8")
 msg["Subject"] = "Test SMTP OK ?"
 msg["From"] = from_addr
 msg["To"] = to_addr
@@ -22,4 +22,4 @@ with smtplib.SMTP(host, port) as s:
     s.login(user, pw)
     s.sendmail(from_addr, [to_addr], msg.as_string())
 
-print("✅ Email envoyé.")
+print(" Email envoyé.")
