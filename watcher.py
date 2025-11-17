@@ -775,16 +775,7 @@ def main():
                 if h not in new_seen:
                     new_seen.add(h)
                     found.append(j)
-       # JUSTE POUR TEST, à enlever après
-    notify_cfg = cfg.get("notify", {})
-    test_cfg = notify_cfg.get("email")
-    if test_cfg and test_cfg.get("enabled"):
-        send_email(
-            subject="[VIE Job Watcher] Test email",
-            body="Ceci est un test pour vérifier le SMTP.",
-            cfg=test_cfg,
-        )
-
+    
 
 
     # Notif
@@ -798,7 +789,7 @@ def main():
             send_telegram(msg)
 
         if notify_cfg.get("email", {}).get("enabled"):
-            send_email("Nouvelles offres VIE détectées", msg, notify_cfg["email"])
+            send_email("🆕 Nouvelles offres VIE détectées", msg, notify_cfg["email"])
 
         print(msg)
     else:
