@@ -35,6 +35,10 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           PYTHONUNBUFFERED: "1"
+          
+      - name: Install Playwright browsers
+        run: python -m playwright install --with-deps
+
         run: python watcher.py
       - name: Save state (commit seen.json si modifié)
         run: |
